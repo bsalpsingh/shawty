@@ -1,0 +1,20 @@
+[project]
+name = "shawty"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "asyncpg>=0.31.0",
+    "fastapi[standard]>=0.141.1",
+    "greenlet>=3.5.6",
+    "psycopg2-binary>=2.9.13",
+    "pybase62>=1.0.0",
+    "python-dotenv>=1.2.3",
+    "sqlalchemy>=2.0.54",
+]
+
+[dependency-groups]
+dev = [
+    "alembic>=1.20.0",
+]
