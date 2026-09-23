@@ -2,7 +2,7 @@ from fastapi import FastAPI
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from app.api.v1.router import router
+from app.api.router import router
 
 # from sqlalchemy import select
 from app.db.database import engine, Base, get_db
