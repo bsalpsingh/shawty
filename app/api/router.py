@@ -7,16 +7,18 @@ from datetime import datetime, timezone
 from app.db.database import get_db
 from app.schema.url import UrlPayload
 from app.models.models import URL
-from app.utils.utils import md5_to_base62
+from app.utils.utils import md5_to_base62, alchemy_obj_to_dict
+from app.core.redis import cache
+
 
 router = APIRouter(prefix="")
 
 
 @router.post("/getShortUrl")
 async def getShortUrl(body: UrlPayload, request: Request, db: AsyncSession = Depends(get_db)):
-    shortUrl = f"{md5_to_base62(str(body.url))[0:6]}"
+    shortUrl = f"{md5_to_base62(str(body.url).rstrip("/"))[0:6]}"
 
-    url = URL(url=str(body.url), shortURL=shortUrl,
+    url = URL(url=str(body.url).rstrip("/"), shortURL=shortUrl,
               user_id=1, expires_at=body.expires_at)
     db.add(url)
 
@@ -25,13 +27,15 @@ async def getShortUrl(body: UrlPayload, request: Request, db: AsyncSession = Dep
         await db.refresh(url)
     except IntegrityError:
         await db.rollback()
-        raise HTTPException(status_code=409, detail="Short URL collision, please retry")
+        raise HTTPException(
+            status_code=409, detail="Short URL collision, please retry")
     except DBAPIError:
         await db.rollback()
         raise HTTPException(status_code=400, detail="Invalid data provided")
     except SQLAlchemyError:
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Database error, please try again later")
+        raise HTTPException(
+            status_code=500, detail="Database error, please try again later")
 
     base = str(request.base_url).rstrip("/")
     return responses.JSONResponse(status_code=201, content={
@@ -61,26 +65,34 @@ async def getMyUrls(request: Request, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Invalid data provided")
     except SQLAlchemyError:
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Database error, please try again later")
+        raise HTTPException(
+            status_code=500, detail="Database error, please try again later")
 
 
 @router.get("/{short_code}")
 async def gotoUrl(short_code: str, db: AsyncSession = Depends(get_db)):
     try:
-        result = await db.execute(
-            select(URL).where(URL.shortURL == short_code, URL.user_id == 1)
-        )
-        url_obj = result.scalar_one()
+        url_obj = await cache.get(short_code)
+
+        if url_obj is None:
+            result = await db.execute(
+                select(URL).where(URL.shortURL == short_code, URL.user_id == 1)
+            )
+            url_obj = result.scalar_one()
+
+            # ttl optional
+            await cache.set(short_code, alchemy_obj_to_dict(url_obj), ttl=3600)
     except NoResultFound:
         raise HTTPException(status_code=404, detail="short url not found")
     except SQLAlchemyError:
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Database error, please try again later")
+        raise HTTPException(
+            status_code=500, detail="Database error, please try again later")
 
     if url_obj.expires_at is not None and url_obj.expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=403, detail="url has expired")
 
-    target = url_obj.url
+    target = url_obj.url.rstrip("/")
     if not target.startswith(("http://", "https://")):
         target = f"https://{target}"
 
