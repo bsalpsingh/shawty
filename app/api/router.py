@@ -54,7 +54,7 @@ async def getMyUrls(request: Request, db: AsyncSession = Depends(get_db)):
 
         base = str(request.base_url).rstrip("/")
         urls_data = [
-            {"id": u.id, "short_code": f"{base}/{u.shortURL}", "original_url": u.url}
+            { **alchemy_obj_to_dict(u), "shortURL": f"{base}/{u.shortURL}" }
             for u in urls
         ]
         return responses.JSONResponse(status_code=200, content={
@@ -75,6 +75,7 @@ async def sync_cache_from_db(db, short_code):
         select(URL).where(URL.shortURL == short_code, URL.user_id == 1)
     )
     url_obj = result.scalar_one()
+    
     if url_obj:
         # ttl optional
         await set_with_jitter(short_code, alchemy_obj_to_dict(url_obj), ttl=3600)

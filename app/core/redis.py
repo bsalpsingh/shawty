@@ -3,6 +3,7 @@ import json
 from datetime import datetime
 from types import SimpleNamespace
 
+
 class RedisCache:
     _instance = None
 
@@ -13,7 +14,8 @@ class RedisCache:
 
     def __init__(self, host="127.0.0.1", port=6379):
         if not hasattr(self, "_initialized"):
-            self._client = redis.Redis(host=host, port=port, decode_responses=True)
+            self._client = redis.Redis(
+                host=host, port=port, decode_responses=True)
             self._initialized = True
 
     async def get(self, key) -> SimpleNamespace | None:
@@ -24,15 +26,12 @@ class RedisCache:
         # restore expires_at from ISO string back to datetime
         if obj.get("expires_at"):
             obj["expires_at"] = datetime.fromisoformat(obj["expires_at"])
-           
+
         return SimpleNamespace(**obj)
 
-    async def set(self, key, url_obj, ttl: int | None = None):
-        payload = {
-            **url_obj,
-            "expires_at": url_obj["expires_at"].isoformat() if url_obj["expires_at"] else None,
-        }
-        await self._client.set(key, json.dumps(payload), ex=ttl)
+    async def set(self, key, url_obj, ttl: int | None = None):\
     
+        await self._client.set(key, json.dumps(url_obj), ex=ttl)
+
 
 cache = RedisCache()
