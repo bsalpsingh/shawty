@@ -3,11 +3,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError, DBAPIError, SQLAlchemyError, NoResultFound
 from sqlalchemy import select
 from datetime import datetime, timezone
+from fastapi import BackgroundTasks
 
 from app.db.database import get_db
 from app.schema.url import UrlPayload
 from app.models.models import URL
-from app.utils.utils import md5_to_base62, alchemy_obj_to_dict
+from app.utils.utils import md5_to_base62, alchemy_obj_to_dict, set_with_jitter, refresh_cache_entry
 from app.core.redis import cache
 
 
@@ -69,31 +70,40 @@ async def getMyUrls(request: Request, db: AsyncSession = Depends(get_db)):
             status_code=500, detail="Database error, please try again later")
 
 
+async def sync_cache_from_db(db, short_code):
+    result = await db.execute(
+        select(URL).where(URL.shortURL == short_code, URL.user_id == 1)
+    )
+    url_obj = result.scalar_one()
+    if url_obj:
+        # ttl optional
+        await set_with_jitter(short_code, alchemy_obj_to_dict(url_obj), ttl=3600)
+    return url_obj
+
+
 @router.get("/{short_code}")
-async def gotoUrl(short_code: str, db: AsyncSession = Depends(get_db)):
+async def gotoUrl(short_code: str, background_task: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     try:
-        url_obj = await cache.get(short_code)
+        cached_url_record = await cache.get(short_code)
 
-        if url_obj is None:
-            result = await db.execute(
-                select(URL).where(URL.shortURL == short_code, URL.user_id == 1)
-            )
-            url_obj = result.scalar_one()
+        if cached_url_record is None:
+            cached_url_record = await sync_cache_from_db(db, short_code)
 
-            # ttl optional
-            await cache.set(short_code, alchemy_obj_to_dict(url_obj), ttl=3600)
+        else:
+            background_task.add_task(
+                refresh_cache_entry, short_code, 3600, 0.2, lambda: sync_cache_from_db(db, short_code))
+        if cached_url_record.expires_at is not None and cached_url_record.expires_at < datetime.now(timezone.utc):
+            raise HTTPException(status_code=403, detail="url has expired")
+
+        target = cached_url_record.url.rstrip("/")
+        if not target.startswith(("http://", "https://")):
+            target = f"https://{target}"
+
+        return responses.RedirectResponse(url=target)
+
     except NoResultFound:
         raise HTTPException(status_code=404, detail="short url not found")
     except SQLAlchemyError:
         await db.rollback()
         raise HTTPException(
             status_code=500, detail="Database error, please try again later")
-
-    if url_obj.expires_at is not None and url_obj.expires_at < datetime.now(timezone.utc):
-        raise HTTPException(status_code=403, detail="url has expired")
-
-    target = url_obj.url.rstrip("/")
-    if not target.startswith(("http://", "https://")):
-        target = f"https://{target}"
-
-    return responses.RedirectResponse(url=target)

@@ -24,6 +24,7 @@ class RedisCache:
         # restore expires_at from ISO string back to datetime
         if obj.get("expires_at"):
             obj["expires_at"] = datetime.fromisoformat(obj["expires_at"])
+           
         return SimpleNamespace(**obj)
 
     async def set(self, key, url_obj, ttl: int | None = None):
@@ -32,5 +33,6 @@ class RedisCache:
             "expires_at": url_obj["expires_at"].isoformat() if url_obj["expires_at"] else None,
         }
         await self._client.set(key, json.dumps(payload), ex=ttl)
+    
 
 cache = RedisCache()
