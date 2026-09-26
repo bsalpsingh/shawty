@@ -8,7 +8,7 @@ from fastapi import BackgroundTasks
 from app.db.database import get_db
 from app.schema.url import UrlPayload
 from app.models.models import URL
-from app.utils.utils import md5_to_base62, alchemy_obj_to_dict, set_with_jitter, refresh_cache_entry
+from app.utils.utils import alchemy_obj_to_dict, set_with_jitter, refresh_cache_entry,get_unique_short_code
 from app.core.redis import cache
 
 
@@ -17,7 +17,7 @@ router = APIRouter(prefix="")
 
 @router.post("/getShortUrl")
 async def getShortUrl(body: UrlPayload, request: Request, db: AsyncSession = Depends(get_db)):
-    shortUrl = f"{md5_to_base62(str(body.url).rstrip("/"))[0:6]}"
+    shortUrl = f"{get_unique_short_code()[0:6]}"
 
     url = URL(url=str(body.url).rstrip("/"), shortURL=shortUrl,
               user_id=1, expires_at=body.expires_at)
