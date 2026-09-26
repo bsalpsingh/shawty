@@ -18,8 +18,9 @@ class RedisCache:
                 host=host, port=port, decode_responses=True)
             self._initialized = True
 
-    async def get(self, key) -> SimpleNamespace | None:
-        data = await self._client.get(key)
+    async def get(self, prefix,key) -> SimpleNamespace | None:
+        data = await self._client.get(f"{prefix}:{key}")
+       
         if data is None:
             return None
         obj = json.loads(data)
@@ -29,9 +30,9 @@ class RedisCache:
 
         return SimpleNamespace(**obj)
 
-    async def set(self, key, url_obj, ttl: int | None = None):\
+    async def set(self,  prefix,key,url_obj, ttl: int | None = None):
     
-        await self._client.set(key, json.dumps(url_obj), ex=ttl)
+        await self._client.set(f"{prefix}:{key}", json.dumps(url_obj), ex=ttl)
 
 
 cache = RedisCache()

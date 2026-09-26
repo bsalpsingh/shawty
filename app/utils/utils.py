@@ -40,14 +40,14 @@ def md5_to_base62(text: str) -> str:
     return base62.encode(hash_int)
 
 
-async def set_with_jitter(key, value, ttl: int):
+async def set_with_jitter(prefix,key, value, ttl: int):
     if (ttl <= 0):
         raise ValueError(f"invalid ttl value of {ttl}")
 
     max_jitter = int(ttl*0.1)
     jitter = random.randint(0, max_jitter)
     ttl_with_jitter = ttl+jitter
-    await cache.set(key, value, ttl_with_jitter)
+    await cache.set(prefix,key, value, ttl_with_jitter)
 
 
 async def refresh_cache_entry(short_code: str, ttl: int = 3600, refresh_threshold=0.2, cb=None):

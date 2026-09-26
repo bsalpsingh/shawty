@@ -8,7 +8,7 @@ from fastapi import BackgroundTasks
 from app.db.database import get_db
 from app.schema.url import UrlPayload
 from app.models.models import URL
-from app.utils.utils import alchemy_obj_to_dict, set_with_jitter, refresh_cache_entry,get_unique_short_code
+from app.utils.utils import alchemy_obj_to_dict, set_with_jitter, refresh_cache_entry, get_unique_short_code
 from app.core.redis import cache
 
 
@@ -54,7 +54,7 @@ async def getMyUrls(request: Request, db: AsyncSession = Depends(get_db)):
 
         base = str(request.base_url).rstrip("/")
         urls_data = [
-            { **alchemy_obj_to_dict(u), "shortURL": f"{base}/{u.shortURL}" }
+            {**alchemy_obj_to_dict(u), "shortURL": f"{base}/{u.shortURL}"}
             for u in urls
         ]
         return responses.JSONResponse(status_code=200, content={
@@ -75,17 +75,18 @@ async def sync_cache_from_db(db, short_code):
         select(URL).where(URL.shortURL == short_code, URL.user_id == 1)
     )
     url_obj = result.scalar_one()
-    
+
     if url_obj:
         # ttl optional
-        await set_with_jitter(short_code, alchemy_obj_to_dict(url_obj), ttl=3600)
+        await set_with_jitter("short_url", short_code, alchemy_obj_to_dict(url_obj), ttl=3600)
     return url_obj
 
 
 @router.get("/{short_code}")
 async def gotoUrl(short_code: str, background_task: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     try:
-        cached_url_record = await cache.get(short_code)
+
+        cached_url_record = await cache.get("short_url", short_code)
 
         if cached_url_record is None:
             cached_url_record = await sync_cache_from_db(db, short_code)
