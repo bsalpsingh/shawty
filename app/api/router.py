@@ -9,6 +9,7 @@ from app.db.database import get_db
 from app.schema.url import UrlPayload
 from app.models.models import URL
 from app.utils.utils import alchemy_obj_to_dict, set_with_jitter, refresh_cache_entry, get_unique_short_code
+from app.core.kafka import kafka_producer
 from app.core.redis import cache
 
 
@@ -81,6 +82,19 @@ async def sync_cache_from_db(db, short_code):
         await set_with_jitter("short_url", short_code, alchemy_obj_to_dict(url_obj), ttl=3600)
     return url_obj
 
+from types import SimpleNamespace
+from datetime import datetime
+
+
+def to_dict(obj) -> dict:
+    """Convert either a SQLAlchemy model or a SimpleNamespace (from cache) into a plain dict."""
+    if isinstance(obj, SimpleNamespace):
+        return {
+            k: (v.isoformat() if isinstance(v, datetime) else v)
+            for k, v in vars(obj).items()
+            if not k.startswith("_")
+        }
+    return alchemy_obj_to_dict(obj)
 
 @router.get("/{short_code}")
 async def gotoUrl(short_code: str, background_task: BackgroundTasks, db: AsyncSession = Depends(get_db)):
@@ -100,7 +114,7 @@ async def gotoUrl(short_code: str, background_task: BackgroundTasks, db: AsyncSe
         target = cached_url_record.url.rstrip("/")
         if not target.startswith(("http://", "https://")):
             target = f"https://{target}"
-
+        background_task.add_task(kafka_producer.send,"analytics",to_dict(cached_url_record))
         return responses.RedirectResponse(url=target)
 
     except NoResultFound:

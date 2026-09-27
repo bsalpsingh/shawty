@@ -9,7 +9,7 @@
 venv/
 env/
 ENV/
-
+manifests/
 # Python
 __pycache__/
 *.py[cod]
