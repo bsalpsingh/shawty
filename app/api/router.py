@@ -107,14 +107,14 @@ async def gotoUrl(short_code: str, background_task: BackgroundTasks, db: AsyncSe
 
         else:
             background_task.add_task(
-                refresh_cache_entry, short_code, 3600, 0.2, lambda: sync_cache_from_db(db, short_code))
+                refresh_cache_entry, f"short_url:{short_code}", 3600, 0.2, lambda: sync_cache_from_db(db, short_code))
         if cached_url_record.expires_at is not None and cached_url_record.expires_at < datetime.now(timezone.utc):
             raise HTTPException(status_code=403, detail="url has expired")
 
         target = cached_url_record.url.rstrip("/")
         if not target.startswith(("http://", "https://")):
             target = f"https://{target}"
-        background_task.add_task(kafka_producer.send,"analytics",to_dict(cached_url_record))
+        kafka_producer.send("analytics",to_dict(cached_url_record))
         return responses.RedirectResponse(url=target)
 
     except NoResultFound:
