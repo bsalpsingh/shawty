@@ -8,6 +8,7 @@ from typing import Any
 from app.core.redis import cache
 from snowflake import SnowflakeGenerator
 import os
+from types import SimpleNamespace
 
 
 def alchemy_obj_to_dict(obj: Any) -> dict[str, Any]:
@@ -75,3 +76,13 @@ def get_unique_short_code():
     worker_id = get_worker_id()
     gen = SnowflakeGenerator(worker_id)
     return base62.encode(next(gen))
+
+def to_dict(obj) -> dict:
+    """Convert either a SQLAlchemy model or a SimpleNamespace (from cache) into a plain dict."""
+    if isinstance(obj, SimpleNamespace):
+        return {
+            k: (v.isoformat() if isinstance(v, datetime) else v)
+            for k, v in vars(obj).items()
+            if not k.startswith("_")
+        }
+    return alchemy_obj_to_dict(obj)
