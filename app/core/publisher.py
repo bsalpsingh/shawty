@@ -2,7 +2,7 @@ import os
 import json
 from kafka import KafkaProducer
 
-class KafkaProducerSingleton:
+class PublisherSingleton:
     _instance = None
 
     def __new__(cls):
@@ -24,4 +24,4 @@ class KafkaProducerSingleton:
     def send(self, topic: str, value: dict):
         self._producer.send(topic, value)
 
-kafka_producer = KafkaProducerSingleton()
+publisher = PublisherSingleton()

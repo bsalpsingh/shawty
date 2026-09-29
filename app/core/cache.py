@@ -4,7 +4,7 @@ from datetime import datetime
 from types import SimpleNamespace
 import os
 
-class RedisCache:
+class Cache:
     _instance = None
 
     def __new__(cls, *args, **kwargs):
@@ -38,4 +38,4 @@ class RedisCache:
         await self._client.set(f"{prefix}:{key}", json.dumps(url_obj), ex=ttl)
 
 
-cache = RedisCache()
+cache = Cache()

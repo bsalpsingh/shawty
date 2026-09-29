@@ -5,7 +5,7 @@ from typing import Any
 from sqlalchemy import inspect
 from datetime import date, datetime
 from typing import Any
-from app.core.redis import cache
+from app.core.cache import cache
 from snowflake import SnowflakeGenerator
 import os
 from types import SimpleNamespace

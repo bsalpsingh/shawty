@@ -9,8 +9,8 @@ from app.db.database import get_db
 from app.schema.url import UrlPayload
 from app.models.models import URL
 from app.utils.utils import alchemy_obj_to_dict, set_with_jitter, refresh_cache_entry, get_unique_short_code, to_dict
-from app.core.kafka import kafka_producer
-from app.core.redis import cache
+from app.core.publisher import publisher
+from app.core.cache import cache
 from datetime import datetime
 
 router = APIRouter(prefix="")
@@ -101,7 +101,7 @@ async def gotoUrl(short_code: str, background_task: BackgroundTasks, req: Reques
         target = cached_url_record.url.rstrip("/")
         if not target.startswith(("http://", "https://")):
             target = f"https://{target}"
-        kafka_producer.send("analytics", {
+        publisher.send("analytics", {
                             **to_dict(cached_url_record), "ip_addr": req.client.host if req.client else "unknown", "ref": req.headers.get("referer")})
         return responses.RedirectResponse(url=target)
 
