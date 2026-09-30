@@ -2,7 +2,8 @@ from fastapi import FastAPI
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from app.api.router import router
+from app.api.main_router import main_router
+from app.api.analytics_router import analytics_router
 
 
 # from sqlalchemy import select
@@ -16,4 +17,5 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(lifespan=lifespan)
-app.include_router(router=router)
+app.include_router(router=main_router)
+app.include_router(router=analytics_router)
