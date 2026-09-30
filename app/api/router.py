@@ -102,7 +102,7 @@ async def gotoUrl(short_code: str, background_task: BackgroundTasks, req: Reques
         if not target.startswith(("http://", "https://")):
             target = f"https://{target}"
         publisher.send("analytics", {
-                            **to_dict(cached_url_record), "ip_addr": req.client.host if req.client else "unknown", "ref": req.headers.get("referer")})
+                            **to_dict(cached_url_record), "ip_addr": req.client.host if req.client else "unknown", "ref": req.headers.get("referer"),"ts": datetime.now(timezone.utc).isoformat()})
         return responses.RedirectResponse(url=target)
 
     except NoResultFound:
