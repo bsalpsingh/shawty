@@ -1,4 +1,4 @@
-from sqlalchemy import String, ForeignKey
+from sqlalchemy import String, ForeignKey,func
 from sqlalchemy.orm import  Mapped, mapped_column, relationship
 from sqlalchemy import DateTime
 from typing import List
@@ -20,3 +20,4 @@ class URL(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     user: Mapped["User"] = relationship(back_populates="urls")
     expires_at:Mapped[datetime|None]=mapped_column(DateTime(timezone=True), nullable=True,index=True)
+    created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),nullable=False,server_default=func.now())
