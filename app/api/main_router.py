@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, responses, Request, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError, DBAPIError, SQLAlchemyError, NoResultFound
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from datetime import datetime, timezone
 from fastapi import BackgroundTasks
 
-from app.db.database import get_db
+from app.db.database import get_db,get_db_util
 from app.schema.url import UrlPayload
 from app.models.models import URL
 from app.utils.utils import alchemy_obj_to_dict, set_with_jitter, refresh_cache_entry, get_unique_short_code, to_dict
@@ -13,12 +13,27 @@ from app.core.publisher import publisher
 from app.core.cache import cache
 from datetime import datetime
 
-main_router = APIRouter(prefix="")
+main_router = APIRouter(prefix="",tags=["URLS"])
 
 
-@main_router.post("/getShortUrl")
+
+async def clean_expired_urls(batch_size: int=1000):
+    now = datetime.now(timezone.utc)
+    total=0
+
+    while True:
+        async with get_db_util() as db:
+            ids = (await db.execute(select(URL.id).where(URL.expires_at.isnot(None), URL.expires_at < now).limit(batch_size))).scalars().all()
+            if len(ids) == 0:
+                break
+            await db.execute(delete(URL).where(URL.id.in_(ids)))
+            await db.commit()
+            total+=len(ids)
+    return total
+
+@main_router.post("/short-url")
 async def getShortUrl(body: UrlPayload, request: Request, db: AsyncSession = Depends(get_db)):
-    shortUrl = f"{get_unique_short_code()[0:6]}"
+    shortUrl = f"{get_unique_short_code()[-6:]}"
 
     url = URL(url=str(body.url).rstrip("/"), shortURL=shortUrl,
               user_id=1, expires_at=body.expires_at)
@@ -102,7 +117,7 @@ async def gotoUrl(short_code: str, background_task: BackgroundTasks, req: Reques
         if not target.startswith(("http://", "https://")):
             target = f"https://{target}"
         publisher.send("analytics", {
-                            **to_dict(cached_url_record), "ip_addr": req.client.host if req.client else "unknown", "ref": req.headers.get("referer"),"ts": datetime.now(timezone.utc).isoformat()})
+            **to_dict(cached_url_record), "ip_addr": req.client.host if req.client else "unknown", "ref": req.headers.get("referer"), "ts": datetime.now(timezone.utc).isoformat()})
         return responses.RedirectResponse(url=target)
 
     except NoResultFound:

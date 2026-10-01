@@ -19,4 +19,4 @@ class URL(Base):
     shortURL: Mapped[str] = mapped_column(String(20), unique=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     user: Mapped["User"] = relationship(back_populates="urls")
-    expires_at:Mapped[datetime|None]=mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at:Mapped[datetime|None]=mapped_column(DateTime(timezone=True), nullable=True,index=True)

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.core.clickhouse import ClickHouseReader  # must point to the file containing ClickHouseReader
 
-analytics_router = APIRouter(prefix="/analytics")
+analytics_router = APIRouter(prefix="/analytics",tags=["Analytics"])
 
 
 def get_current_user():
