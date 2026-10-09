@@ -22,6 +22,7 @@ class PublisherSingleton:
             self._initialized = True
 
     def send(self, topic: str, value: dict):
+        print("message sent")
         self._producer.send(topic, value)
 
 publisher = PublisherSingleton()

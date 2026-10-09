@@ -82,6 +82,7 @@ async def gotoUrl(short_code: str, background_task: BackgroundTasks, req: Reques
 
     publisher.send("analytics", {
         **to_dict(cached_url_record), "ip_addr": req.client.host if req.client else "unknown", "ref": req.headers.get("referer"), "ts": datetime.now(timezone.utc).isoformat()})
+    
     return responses.RedirectResponse(url=target)
 
-    return responses.RedirectResponse(url=target)
+
