@@ -11,7 +11,17 @@ export const options = {
 };
 
 // Simulated short codes that exist in your database
-const testCodes = ['5D2XY9', '2Joh83', '4E5tT9', '2tjxEy'];
+const testCodes = [
+  '2dsbCVRA',
+  '1W7QwPXl',
+  '1Nu9RTN3',
+  '1IeGW9ej',
+  'vGjZXFiL',
+  '5D2XY9',
+  '2Joh83',
+  '1y6yYw',
+  '4E5tT9',
+];
 
 export default function () {
   // Pick a random short code from the array

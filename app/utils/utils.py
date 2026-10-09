@@ -5,7 +5,6 @@ from typing import Any
 from sqlalchemy import inspect
 from datetime import date, datetime
 from typing import Any
-from app.core.cache import cache
 from snowflake import SnowflakeGenerator
 import os
 from types import SimpleNamespace
@@ -41,27 +40,6 @@ def md5_to_base62(text: str) -> str:
     return base62.encode(hash_int)
 
 
-async def set_with_jitter(prefix,key, value, ttl: int):
-    if (ttl <= 0):
-        raise ValueError(f"invalid ttl value of {ttl}")
-
-    max_jitter = int(ttl*0.1)
-    jitter = random.randint(0, max_jitter)
-    ttl_with_jitter = ttl+jitter
-    await cache.set(prefix,key, value, ttl_with_jitter)
-
-
-async def refresh_cache_entry(short_code: str, ttl: int = 3600, refresh_threshold=0.2, cb=None):
-    remaining = await cache._client.ttl(short_code)
-    if remaining in [-1, -2]:
-        return
-    if remaining >= ttl*refresh_threshold:
-        return
-    #  sync from db
-    if cb is not None:
-        await cb()
-
-
 def get_worker_id() -> int:
     pod_name = os.environ["HOSTNAME"]
 
@@ -76,6 +54,7 @@ def get_unique_short_code():
     worker_id = get_worker_id()
     gen = SnowflakeGenerator(worker_id)
     return base62.encode(next(gen))
+
 
 def to_dict(obj) -> dict:
     """Convert either a SQLAlchemy model or a SimpleNamespace (from cache) into a plain dict."""
