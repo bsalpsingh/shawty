@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
-from app.core.clickhouse import ClickHouseReader  # must point to the file containing ClickHouseReader
-
-analytics_router = APIRouter(prefix="/analytics",tags=["Analytics"])
+# must point to the file containing ClickHouseReader
+from app.components.clickhouse import ClickHouseReader
+from app.components.rate_limit import rate_limit
+analytics_router = APIRouter(prefix="/analytics", tags=["Analytics"], dependencies=[
+    Depends(rate_limit(capacity=20, scope="analytics"))])
 
 
 def get_current_user():
@@ -27,7 +29,8 @@ async def summary(short_url: str, user: dict = Depends(get_current_user)):
         {"s": to_code(short_url), "u": user["id"]},
     )
     if not rows or rows[0]["clicks"] == 0:
-        raise HTTPException(status_code=404, detail="No analytics found for this URL")
+        raise HTTPException(
+            status_code=404, detail="No analytics found for this URL")
     return rows[0]
 
 

@@ -3,14 +3,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import get_db
 from app.db.queries import add_short_url, flush_urls, get_all_urls, get_short_url
 from app.schema.url import UrlPayload
-from app.core.publisher import publisher
-from app.core.cache import cache
+# from app.components.publisher import publisher
+from app.components.cache import cache
+from app.components.rate_limit import rate_limit
 from app.utils.utils import alchemy_obj_to_dict, get_unique_short_code, to_dict
 from datetime import datetime, timezone
 from typing import Literal
 
 
-main_router = APIRouter(prefix="", tags=["URLS"])
+main_router = APIRouter(prefix="", tags=["URLS"],    dependencies=[
+                        Depends(rate_limit(capacity=20, scope="urls"))])
 
 
 async def clean_expired_urls(batch_size: int = 1000):
@@ -80,9 +82,7 @@ async def gotoUrl(short_code: str, background_task: BackgroundTasks, req: Reques
     if not target.startswith(("http://", "https://")):
         target = f"https://{target}"
 
-    publisher.send("analytics", {
-        **to_dict(cached_url_record), "ip_addr": req.client.host if req.client else "unknown", "ref": req.headers.get("referer"), "ts": datetime.now(timezone.utc).isoformat()})
-    
+    # publisher.send("analytics", {
+    #     **to_dict(cached_url_record), "ip_addr": req.client.host if req.client else "unknown", "ref": req.headers.get("referer"), "ts": datetime.now(timezone.utc).isoformat()})
+
     return responses.RedirectResponse(url=target)
-
-

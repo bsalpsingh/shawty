@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from app.db.database import get_db_util
 from app.models.models import URL
 from typing import Literal
-from app.core.cache import cache
+from app.components.cache import cache
 from app.utils.utils import alchemy_obj_to_dict
 
 

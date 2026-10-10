@@ -39,6 +39,11 @@ class Cache:
             d["expires_at"] = datetime.fromisoformat(d["expires_at"])
         return SimpleNamespace(**d)
 
+    @property
+    def redis_client(self):
+        return self._client
+
+
     async def get(self, prefix, key) -> SimpleNamespace | None:
         data = await self._client.get(f"{prefix}:{key}")
         if data is None:
@@ -82,6 +87,8 @@ class Cache:
             raise ValueError(f"invalid ttl value of {ttl}")
         jitter = random.randint(0, int(ttl * 0.1))
         await self.set(prefix, key, value, ttl + jitter)
+
+    
 
 
 cache = Cache()
