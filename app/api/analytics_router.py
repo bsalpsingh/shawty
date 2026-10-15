@@ -5,7 +5,7 @@ from app.components.rate_limit import rate_limit
 from app.models.models import Role
 from app.utils.auth import require_roles
 analytics_router = APIRouter(prefix="/analytics", tags=["Analytics"], dependencies=[
-    Depends(rate_limit(capacity=20, scope="analytics")), Depends(require_roles(Role.admin))])
+    Depends(rate_limit(capacity=20, scope="analytics")),Depends(require_roles(Role.admin))])
 
 
 def to_code(short_url: str) -> str:
@@ -22,9 +22,9 @@ async def summary(short_url: str):
                min(clicked_at) AS first_click,
                max(clicked_at) AS last_click
         FROM url_clicks
-        WHERE short_url = {s:String} AND user_id = {u:UInt64}
+        WHERE short_url = {s:String}
         """,
-        {"s": to_code(short_url), },
+        {"s": to_code(short_url)},
     )
     if not rows or rows[0]["clicks"] == 0:
         raise HTTPException(
@@ -38,11 +38,11 @@ async def hourly(short_url: str, days: int = 7):
         """
         SELECT toStartOfHour(clicked_at) AS hour, count() AS clicks
         FROM url_clicks
-        WHERE short_url = {s:String} AND user_id = {u:UInt64}
+        WHERE short_url = {s:String}
           AND clicked_at >= now() - INTERVAL {d:UInt16} DAY
         GROUP BY hour ORDER BY hour
         """,
-        {"s": to_code(short_url),  "d": days},
+        {"s": to_code(short_url), "d": days},
     )
 
 
@@ -52,7 +52,7 @@ async def referrers(short_url: str):
         """
         SELECT if(referrer = '', 'direct', referrer) AS referrer, count() AS clicks
         FROM url_clicks
-        WHERE short_url = {s:String} AND user_id = {u:UInt64}
+        WHERE short_url = {s:String}
         GROUP BY referrer ORDER BY clicks DESC LIMIT 10
         """,
         {"s": to_code(short_url)},
