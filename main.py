@@ -4,7 +4,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.api.main_router import main_router
 from app.api.analytics_router import analytics_router
-from app.api.user_router import user_router
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.api.main_router import clean_expired_urls
 
@@ -32,4 +31,3 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.include_router(router=main_router)
 app.include_router(router=analytics_router)
-app.include_router(router=user_router)

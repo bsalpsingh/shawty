@@ -2,12 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 # must point to the file containing ClickHouseReader
 from app.components.clickhouse import ClickHouseReader
 from app.components.rate_limit import rate_limit
+from app.models.models import Role
+from app.utils.auth import require_roles
 analytics_router = APIRouter(prefix="/analytics", tags=["Analytics"], dependencies=[
-    Depends(rate_limit(capacity=20, scope="analytics"))])
-
-
-def get_current_user():
-    return {"id": 1, "name": "foobar"}
+    Depends(rate_limit(capacity=20, scope="analytics")), Depends(require_roles(Role.admin))])
 
 
 def to_code(short_url: str) -> str:
@@ -16,7 +14,7 @@ def to_code(short_url: str) -> str:
 
 
 @analytics_router.get("/{short_url:path}/summary")
-async def summary(short_url: str, user: dict = Depends(get_current_user)):
+async def summary(short_url: str):
     rows = await ClickHouseReader.fetch(
         """
         SELECT count() AS clicks,
@@ -26,7 +24,7 @@ async def summary(short_url: str, user: dict = Depends(get_current_user)):
         FROM url_clicks
         WHERE short_url = {s:String} AND user_id = {u:UInt64}
         """,
-        {"s": to_code(short_url), "u": user["id"]},
+        {"s": to_code(short_url), },
     )
     if not rows or rows[0]["clicks"] == 0:
         raise HTTPException(
@@ -35,7 +33,7 @@ async def summary(short_url: str, user: dict = Depends(get_current_user)):
 
 
 @analytics_router.get("/{short_url:path}/hourly")
-async def hourly(short_url: str, days: int = 7, user: dict = Depends(get_current_user)):
+async def hourly(short_url: str, days: int = 7):
     return await ClickHouseReader.fetch(
         """
         SELECT toStartOfHour(clicked_at) AS hour, count() AS clicks
@@ -44,12 +42,12 @@ async def hourly(short_url: str, days: int = 7, user: dict = Depends(get_current
           AND clicked_at >= now() - INTERVAL {d:UInt16} DAY
         GROUP BY hour ORDER BY hour
         """,
-        {"s": to_code(short_url), "u": user["id"], "d": days},
+        {"s": to_code(short_url),  "d": days},
     )
 
 
 @analytics_router.get("/{short_url:path}/referrers")
-async def referrers(short_url: str, user: dict = Depends(get_current_user)):
+async def referrers(short_url: str):
     return await ClickHouseReader.fetch(
         """
         SELECT if(referrer = '', 'direct', referrer) AS referrer, count() AS clicks
@@ -57,5 +55,5 @@ async def referrers(short_url: str, user: dict = Depends(get_current_user)):
         WHERE short_url = {s:String} AND user_id = {u:UInt64}
         GROUP BY referrer ORDER BY clicks DESC LIMIT 10
         """,
-        {"s": to_code(short_url), "u": user["id"]},
+        {"s": to_code(short_url)},
     )

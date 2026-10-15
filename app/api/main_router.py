@@ -3,12 +3,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import get_db
 from app.db.queries import add_short_url, flush_urls, get_all_urls, get_short_url
 from app.schema.url import UrlPayload
+
 from app.components.publisher import publisher
 from app.components.cache import cache
 from app.components.rate_limit import rate_limit
 from app.utils.utils import alchemy_obj_to_dict, get_unique_short_code, to_dict
+from app.utils.auth import get_current_user
 from datetime import datetime, timezone
 from typing import Literal
+from app.models.models import User
 
 
 main_router = APIRouter(prefix="", tags=["URLS"],    dependencies=[
@@ -18,14 +21,17 @@ main_router = APIRouter(prefix="", tags=["URLS"],    dependencies=[
 async def clean_expired_urls(batch_size: int = 1000):
     return await flush_urls(batch_size)
 
+# @main_router.get("/me")
+# async def me(user: User = Depends(get_current_user)):
+#     return {"id": user.id, "name": user.name, "email": user.email}
 
 @main_router.post("/short-url")
-async def CreateShortURL(body: UrlPayload, request: Request, db: AsyncSession = Depends(get_db)):
+async def createShortURL(body: UrlPayload, request: Request, db: AsyncSession = Depends(get_db),user: User = Depends(get_current_user)):
 
     short_url = f"{get_unique_short_code()[-8:]}"
 
     await add_short_url(db, url=str(body.url).rstrip("/"), short_url=short_url,
-                        user_id=1, expires_at=body.expires_at)
+                        user_id=user.id, expires_at=body.expires_at)
 
     base = str(request.base_url).rstrip("/")
     return responses.JSONResponse(status_code=201, content={
@@ -36,10 +42,10 @@ async def CreateShortURL(body: UrlPayload, request: Request, db: AsyncSession = 
 
 
 @main_router.get("/urls")
-async def getMyUrls(request: Request, db: AsyncSession = Depends(get_db), skip: int = Query(0, ge=0), limit: int = Query(10, ge=5, le=100),
+async def getMyUrls(request: Request,user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db), skip: int = Query(0, ge=0), limit: int = Query(10, ge=5, le=100),
                     order: Literal["asc", "desc"] = "desc"):
 
-    urls = await get_all_urls(db, order, skip, limit)
+    urls = await get_all_urls(db, user.id,order, skip, limit)
     base = str(request.base_url).rstrip("/")
     urls_data = [
         {**alchemy_obj_to_dict(u),
@@ -86,3 +92,5 @@ async def gotoUrl(short_code: str, background_task: BackgroundTasks, req: Reques
         **to_dict(cached_url_record), "ip_addr": req.client.host if req.client else "unknown", "ref": req.headers.get("referer"), "ts": datetime.now(timezone.utc).isoformat()})
 
     return responses.RedirectResponse(url=target)
+
+

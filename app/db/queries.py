@@ -1,3 +1,4 @@
+import uuid
 from fastapi import HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError, DBAPIError, SQLAlchemyError
@@ -5,11 +6,36 @@ from sqlalchemy import select, delete
 from datetime import datetime, timezone
 
 from app.db.database import get_db_util
-from app.models.models import URL,User
-from app.schema.user import UserSignUpPayload
+from app.models.models import URL, User
 from typing import Literal
-from app.components.cache import cache
-from app.utils.utils import alchemy_obj_to_dict
+
+
+async def get_or_create_user(
+    db: AsyncSession, supabase_id: str, email: str | None, name: str | None
+) -> User:
+    sid = uuid.UUID(supabase_id)
+
+    async def _fetch() -> User | None:
+        res = await db.execute(select(User).where(User.supabase_user_id == sid))
+        return res.scalar_one_or_none()
+
+    user = await _fetch()
+    if user:
+        return user
+
+    user = User(supabase_user_id=sid, email=email, name=name or "")
+    db.add(user)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        # lost a race with a concurrent first login
+        existing = await _fetch()
+        if existing:
+            return existing
+        raise  # likely an email unique-constraint clash, see notes
+    await db.refresh(user)
+    return user
 
 
 async def get_short_url(db: AsyncSession, short_code: str):
@@ -74,6 +100,7 @@ async def flush_urls(batch_size: int):
 
 async def get_all_urls(
         db: AsyncSession,
+        user_id:int,
         order: Literal["desc", "asc"],
         skip: int = Query(0, ge=0),
         limit: int = Query(10, ge=5, le=100)):
@@ -82,7 +109,7 @@ async def get_all_urls(
 
         column = URL.created_at.desc() if order == "desc" else URL.created_at.asc()
 
-        result = await db.execute(select(URL).where(URL.user_id == 1).order_by(column, URL.id).offset(skip).limit(limit))
+        result = await db.execute(select(URL).where(URL.user_id == user_id).order_by(column, URL.id).offset(skip).limit(limit))
         urls = result.scalars().all()
 
         return urls
@@ -103,37 +130,3 @@ async def get_all_urls(
                 "message": "database error try later"
 
             })
-
-
-async def add_user(db: AsyncSession, user: UserSignUpPayload):
-    db_user = User(email=user.email, password=user.password, name=user.name)
-    db.add(db_user)
-    try:
-            await db.commit()
-            await db.refresh(user)
-    except IntegrityError :
-            await db.rollback()
-            raise HTTPException(
-                status_code=409, detail={
-                    "status": "error",
-                    "CODE": "CONFLICT",
-                    "message": "user already exists, try logging in",
-    
-                })
-    except DBAPIError:
-            await db.rollback()
-            raise HTTPException(status_code=400, detail={
-                "status": "error",
-                "CODE": "BAD_REQUEST",
-                "message": "invalid value provided"
-    
-            })
-    except SQLAlchemyError:
-            await db.rollback()
-            raise HTTPException(
-                status_code=500, detail={
-                    "status": "error",
-                    "CODE": "INTERNAL_SERVER_ERROR",
-                    "message": "database error try later"
-    
-                })
