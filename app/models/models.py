@@ -1,5 +1,5 @@
 from sqlalchemy import String, ForeignKey,func
-from sqlalchemy.orm import  Mapped, mapped_column, relationship
+from sqlalchemy.orm import  Mapped, mapped_column, relationship,deferred
 from sqlalchemy import DateTime
 from typing import List
 from app.db.database import Base
@@ -8,8 +8,9 @@ from datetime import datetime
 class User(Base):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(50))
-    email: Mapped[str] = mapped_column(String(255), index=True, unique=True)
+    name: Mapped[str] = mapped_column(String(50),nullable=False)
+    email: Mapped[str] = mapped_column(String(255), index=True, unique=True,nullable=False)
+    password:Mapped[str]=deferred(mapped_column(String(255),nullable=False))
     urls: Mapped[List["URL"]] = relationship(back_populates="user")
 
 class URL(Base):

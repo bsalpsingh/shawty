@@ -5,7 +5,8 @@ from sqlalchemy import select, delete
 from datetime import datetime, timezone
 
 from app.db.database import get_db_util
-from app.models.models import URL
+from app.models.models import URL,User
+from app.schema.user import UserSignUpPayload
 from typing import Literal
 from app.components.cache import cache
 from app.utils.utils import alchemy_obj_to_dict
@@ -56,6 +57,7 @@ async def add_short_url(db: AsyncSession, url: str, user_id: int, expires_at: da
 
             })
 
+
 async def flush_urls(batch_size: int):
     now = datetime.now(timezone.utc)
     total = 0
@@ -101,3 +103,37 @@ async def get_all_urls(
                 "message": "database error try later"
 
             })
+
+
+async def add_user(db: AsyncSession, user: UserSignUpPayload):
+    db_user = User(email=user.email, password=user.password, name=user.name)
+    db.add(db_user)
+    try:
+            await db.commit()
+            await db.refresh(user)
+    except IntegrityError :
+            await db.rollback()
+            raise HTTPException(
+                status_code=409, detail={
+                    "status": "error",
+                    "CODE": "CONFLICT",
+                    "message": "user already exists, try logging in",
+    
+                })
+    except DBAPIError:
+            await db.rollback()
+            raise HTTPException(status_code=400, detail={
+                "status": "error",
+                "CODE": "BAD_REQUEST",
+                "message": "invalid value provided"
+    
+            })
+    except SQLAlchemyError:
+            await db.rollback()
+            raise HTTPException(
+                status_code=500, detail={
+                    "status": "error",
+                    "CODE": "INTERNAL_SERVER_ERROR",
+                    "message": "database error try later"
+    
+                })
