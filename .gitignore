@@ -4,6 +4,9 @@
 !.env.example
 .python-version
 
+# Local review artifacts
+report.md
+
 # Virtual environments
 .venv/
 venv/
